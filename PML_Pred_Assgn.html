@@ -83,10 +83,21 @@ img {
 <div id="cleaning-data-selection-of-predictors" class="section level2">
 <h2>Cleaning Data / Selection of predictors</h2>
 <p>The training data set contained a data frame of 19622 observations of 160 variables. Observation of the data revealed that several columns contained NA’s and/or missing values. I elected to remove these columns as they contained so little data to have a significant impact on the <em>classe</em> prediction. The first seven columns of the matrix were also removed as they did not contain data relevant to classifying the quality of the exercise. The training data set now contained 19622 observations of 53 variables. The remaining columns contain 52 predictors and the outcome, <em>classe</em>. This data set is still very large to perform an analysis of correlation between the predictors using either the <em>cor</em> or <em>featurePlot</em> functions in R. So I elected to use the Random Forest method to fit a model and evaluate the predictors.</p>
+<pre class="r"><code>train = read.csv(&quot;./pml-training.csv&quot;,
+                 na.strings = c(&quot;&quot;, &quot;NA&quot;))
+# Identify the columns with NAs
+nas&lt;-colSums(is.na(train))
+# Remove the columns with a large number of NAs
+train &lt;- train[,!nas]
+# Remove the first seven columns as they appear to be information only
+train &lt;- train[,-(1:7)]</code></pre>
 </div>
 <div id="model-selection" class="section level2">
 <h2>Model Selection</h2>
 <p>Random Forests are a powerful method for modeling non-linear data. We learned that Random Forests are an extension of Bagging (Bootstrap Aggregating) with one key difference. Bagging performs resampling with replacement. Random Forests also perform bootstrapping of the variables at each split or node. This means that a unique subset of variables is used at each split. The result is a large number of diverse trees to which an averaged result can be fitted with high accuracy. The downfalls to this method are that it can be time consuming to generate the multiple variations and you have the risk of over-fitting the data. Over-fitting can occur because trees attempt to select a locally optimal solution at each node. This does not necessarily translate to a globally optimal solution. To resolve the over-fitting, a 10-fold cross validation approach was utilized.</p>
+<pre class="r"><code>fitControl &lt;- trainControl(method = &quot;cv&quot;,
+                           number = 10,
+                           allowParallel = TRUE)</code></pre>
 </div>
 <div id="cross-validation-and-out-of-sample-error" class="section level2">
 <h2>Cross Validation and Out of Sample Error</h2>
@@ -95,22 +106,31 @@ img {
 <div id="model-fitting" class="section level2">
 <h2>Model Fitting</h2>
 <p>The first attempt to generate a random forest model was performed using the <em>train</em> function from the caret package with method = “rf”. This attempt proved to be time consuming indeed and ultimately did not produce a result because insufficient memory could be allocated. Two steps were taken here to resolve the memory and timing issue. First, the train data set was separated into two data sets on which to fit a model. This was a simple attempt to reduce the amount of memory required. The second step utilized information from Leonard Greski on how to utilize parallel processing. The second attempt was successful in reducing both the required memory and time to execute. One model fit was produced for each of the two data sets representing half of the training set. The <strong>accuracy</strong> of the final models appeared to be positive with <strong>99.6%</strong> for each. The classification error is very near 0 which indicates near perfect purity (0). Thus we expect the model will pick the correct outcome based on the input data with a high probability of being correct. However, comparison of the predictions on the test data between the two models showed considerable disagreement (11 out of 20). I suspect this was due to simply separating each class (A, B, C, D &amp; E) into halves without utilizing random selection.</p>
+<pre class="r"><code>fit1 &lt;- train(classe ~ .,
+              data=train1,
+              method=&quot;rf&quot;,
+              trControl = fitControl)
+
+fit2 &lt;- train(classe ~ .,
+              data=train2,
+              method=&quot;rf&quot;,
+              trControl = fitControl)</code></pre>
 <pre class="r"><code>fit1</code></pre>
 <pre><code>## Random Forest 
 ## 
 ## 9817 samples
-##   52 predictor
+##   45 predictor
 ##    5 classes: 'A', 'B', 'C', 'D', 'E' 
 ## 
 ## No pre-processing
 ## Resampling: Cross-Validated (10 fold) 
-## Summary of sample sizes: 8835, 8835, 8834, 8836, 8836, 8835, ... 
+## Summary of sample sizes: 8835, 8836, 8836, 8834, 8835, 8836, ... 
 ## Resampling results across tuning parameters:
 ## 
 ##   mtry  Accuracy   Kappa      Accuracy SD  Kappa SD   
-##    2    0.9957216  0.9945884  0.001784820  0.002257797
-##   27    0.9946015  0.9931718  0.001664851  0.002106124
-##   52    0.9912390  0.9889207  0.003231066  0.004084931
+##    2    0.9930739  0.9912390  0.002790248  0.003529468
+##   23    0.9919530  0.9898218  0.002605527  0.003295449
+##   45    0.9853322  0.9814480  0.003905668  0.004941323
 ## 
 ## Accuracy was used to select the optimal model using  the largest value.
 ## The final value used for the model was mtry = 2.</code></pre>
@@ -118,30 +138,33 @@ img {
 <pre><code>## Random Forest 
 ## 
 ## 9805 samples
-##   52 predictor
+##   45 predictor
 ##    5 classes: 'A', 'B', 'C', 'D', 'E' 
 ## 
 ## No pre-processing
 ## Resampling: Cross-Validated (10 fold) 
-## Summary of sample sizes: 8825, 8825, 8824, 8824, 8826, 8824, ... 
+## Summary of sample sizes: 8825, 8824, 8824, 8825, 8824, 8824, ... 
 ## Resampling results across tuning parameters:
 ## 
 ##   mtry  Accuracy   Kappa      Accuracy SD  Kappa SD   
-##    2    0.9964308  0.9954852  0.001293244  0.001635410
-##   27    0.9959209  0.9948402  0.002148688  0.002717549
-##   52    0.9924543  0.9904532  0.003937801  0.004981795
+##    2    0.9885778  0.9855482  0.003106576  0.003931275
+##   23    0.9892921  0.9864521  0.003634616  0.004598886
+##   45    0.9862326  0.9825806  0.005021788  0.006357860
 ## 
 ## Accuracy was used to select the optimal model using  the largest value.
-## The final value used for the model was mtry = 2.</code></pre>
+## The final value used for the model was mtry = 23.</code></pre>
 <pre class="r"><code>table(predfit1, predfit2)</code></pre>
 <pre><code>##         predfit2
 ## predfit1 A B C D E
-##        A 5 0 0 0 1
-##        B 3 4 1 1 1
+##        A 4 0 0 0 1
+##        B 4 4 0 1 1
 ##        C 1 0 0 1 1
 ##        D 0 0 0 0 0
-##        E 0 0 0 0 1</code></pre>
+##        E 1 0 0 0 1</code></pre>
 <p>The second attempt to fit a model was performed using the <em>randomForest</em> function in R. Once again, parallel processing was utilized along with 10 fold cross-validation but this time the fit was performed on the entire data set. The Random Forest classifier utilized a number of decision trees (500 in this case) resulting in <strong>accuracy higher than 99%</strong>. Evaluation of the test set data with this new model fit a perfect 20 out of 20.</p>
+<pre class="r"><code>fitrf &lt;- randomForest(classe ~ .,
+                      data = train,
+                      trControl = fitControl)</code></pre>
 <pre class="r"><code>fitrf</code></pre>
 <pre><code>## 
 ## Call:
@@ -153,12 +176,17 @@ img {
 ##         OOB estimate of  error rate: 0.31%
 ## Confusion matrix:
 ##      A    B    C    D    E  class.error
-## A 5578    2    0    0    0 0.0003584229
+## A 5578    1    0    0    1 0.0003584229
 ## B   11 3782    4    0    0 0.0039504872
-## C    0   12 3409    1    0 0.0037989480
-## D    0    0   21 3193    2 0.0071517413
-## E    0    0    2    6 3599 0.0022179096</code></pre>
+## C    0   11 3410    1    0 0.0035067212
+## D    0    0   22 3192    2 0.0074626866
+## E    0    0    1    6 3600 0.0019406709</code></pre>
 <p>A third model utilizing Generalized Boosted Regression Modeling or <em>gbm</em> in <em>train</em> produced the same results as the second model. This model performed 10 fold cross validation, generated 150 trees, and produced <strong>96.4% accuracy</strong> using 10 predictors per node.</p>
+<pre class="r"><code>fitgbm &lt;- train(classe ~ .,
+                method = &quot;gbm&quot;,
+                data = train,
+                verbose = FALSE,
+                trControl = fitControl)</code></pre>
 <pre class="r"><code>fitgbm</code></pre>
 <pre><code>## Stochastic Gradient Boosting 
 ## 
@@ -168,29 +196,29 @@ img {
 ## 
 ## No pre-processing
 ## Resampling: Cross-Validated (10 fold) 
-## Summary of sample sizes: 17661, 17661, 17658, 17659, 17660, 17660, ... 
+## Summary of sample sizes: 17659, 17659, 17661, 17659, 17660, 17660, ... 
 ## Resampling results across tuning parameters:
 ## 
 ##   interaction.depth  n.trees  Accuracy   Kappa      Accuracy SD
-##   1                   50      0.7520147  0.6855716  0.010669645
-##   1                  100      0.8205593  0.7728940  0.008996831
-##   1                  150      0.8558761  0.8176332  0.009893010
-##   2                   50      0.8547038  0.8159205  0.012430334
-##   2                  100      0.9070436  0.8823795  0.006952431
-##   2                  150      0.9316067  0.9134502  0.007213440
-##   3                   50      0.8979721  0.8708673  0.007052781
-##   3                  100      0.9432269  0.9281556  0.004191928
-##   3                  150      0.9634077  0.9537058  0.004928356
+##   1                   50      0.7520820  0.6855811  0.005989635
+##   1                  100      0.8209984  0.7734314  0.005664017
+##   1                  150      0.8528224  0.8137577  0.005881282
+##   2                   50      0.8575574  0.8195092  0.005342300
+##   2                  100      0.9087746  0.8845349  0.008783817
+##   2                  150      0.9327787  0.9149347  0.007631117
+##   3                   50      0.8961571  0.8684995  0.009610973
+##   3                  100      0.9429179  0.9277720  0.007834306
+##   3                  150      0.9619023  0.9517997  0.006629984
 ##   Kappa SD   
-##   0.013520029
-##   0.011328437
-##   0.012510129
-##   0.015713859
-##   0.008782414
-##   0.009153338
-##   0.008909055
-##   0.005326840
-##   0.006239448
+##   0.007807048
+##   0.007210079
+##   0.007453669
+##   0.006770078
+##   0.011127774
+##   0.009677320
+##   0.012189165
+##   0.009921380
+##   0.008390310
 ## 
 ## Tuning parameter 'shrinkage' was held constant at a value of 0.1
 ## 

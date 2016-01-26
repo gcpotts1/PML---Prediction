@@ -21,8 +21,25 @@ The goal of this assignment is to utilize that data, fit a model to predict outc
 The training data set contained a data frame of 19622 observations of 160 variables. Observation of the data revealed that several columns contained NA's and/or missing values. I elected to remove these columns as they contained so little data to have a significant impact on the *classe* prediction.  The first seven columns of the matrix were also removed as they did not contain data relevant to classifying the quality of the exercise. The training data set now contained 19622 observations of 53 variables.
 The remaining columns contain 52 predictors and the outcome, *classe*. This data set is still very large to perform an analysis of correlation between the predictors using either the *cor* or *featurePlot* functions in R. So I elected to use the Random Forest method to fit a model and evaluate the predictors.
 
+```{r, eval=FALSE}
+train = read.csv("./pml-training.csv",
+                 na.strings = c("", "NA"))
+# Identify the columns with NAs
+nas<-colSums(is.na(train))
+# Remove the columns with a large number of NAs
+train <- train[,!nas]
+# Remove the first seven columns as they appear to be information only
+train <- train[,-(1:7)]
+```
+
 ## Model Selection
 Random Forests are a powerful method for modeling non-linear data. We learned that Random Forests are an extension of Bagging (Bootstrap Aggregating) with one key difference. Bagging performs resampling with replacement. Random Forests also perform bootstrapping of the variables at each split or node. This means that a unique subset of variables is used at each split. The result is a large number of diverse trees to which an averaged result can be fitted with high accuracy. The downfalls to this method are that it can be time consuming to generate the multiple variations and you have the risk of over-fitting the data. Over-fitting can occur because trees attempt to select a locally optimal solution at each node. This does not necessarily translate to a globally optimal solution.  To resolve the over-fitting, a 10-fold cross validation approach was utilized.
+
+```{r, eval=FALSE}
+fitControl <- trainControl(method = "cv",
+                           number = 10,
+                           allowParallel = TRUE)
+```
 
 ## Cross Validation and Out of Sample Error
 In 10 fold cross validation, the data is sliced into 10 sections where only 9 are utilized at a time using the 10th as the validation set. This process is then repeated with each section being utilized as the validation set once. In this way, the test set can remain independent and the resulting accuracy reflects accuracy for both the in sample (9 sets being utilized to fit a model) and out of sample (1 set held out for validation) data. Thus the accuracies listed for the models below are predicted accuracies for out of sample data.
@@ -30,6 +47,17 @@ In 10 fold cross validation, the data is sliced into 10 sections where only 9 ar
 ## Model Fitting
 The first attempt to generate a random forest model was performed using the *train* function from the caret package with method = "rf". This attempt proved to be time consuming indeed and ultimately did not produce a result because insufficient memory could be allocated. Two steps were taken here to resolve the memory and timing issue. First, the train data set was separated into two data sets on which to fit a model. This was a simple attempt to reduce the amount of memory required. The second step utilized information from Leonard Greski on how to utilize parallel processing. The second attempt was successful in reducing both the required memory and time to execute. One model fit was produced for each of the two data sets representing half of the training set. The **accuracy** of the final models appeared to be positive with **99.6%** for each. The classification error is very near 0 which indicates near perfect purity (0). Thus we expect the model will pick the correct outcome based on the input data with a high probability of being correct. However, comparison of the predictions on the test data between the two models showed considerable disagreement (11 out of 20). I suspect this was due to simply separating each class (A, B, C, D & E) into halves without utilizing random selection.
 
+```{r, eval=FALSE}
+fit1 <- train(classe ~ .,
+              data=train1,
+              method="rf",
+              trControl = fitControl)
+
+fit2 <- train(classe ~ .,
+              data=train2,
+              method="rf",
+              trControl = fitControl)
+```
 ```{r}
 fit1
 fit2
@@ -38,12 +66,24 @@ table(predfit1, predfit2)
 
 The second attempt to fit a model was performed using the *randomForest* function in R. Once again, parallel processing was utilized along with 10 fold cross-validation but this time the fit was performed on the entire data set.  The Random Forest classifier utilized a number of decision trees (500 in this case) resulting in **accuracy higher than 99%**. Evaluation of the test set data with this new model fit a perfect 20 out of 20.
 
+```{r, eval=FALSE}
+fitrf <- randomForest(classe ~ .,
+                      data = train,
+                      trControl = fitControl)
+```
 ```{r}
 fitrf
 ```
 
 A third model utilizing Generalized Boosted Regression Modeling or *gbm* in *train* produced the same results as the second model. This model performed 10 fold cross validation, generated 150 trees, and produced **96.4% accuracy** using 10 predictors per node.
 
+```{r, eval=FALSE}
+fitgbm <- train(classe ~ .,
+                method = "gbm",
+                data = train,
+                verbose = FALSE,
+                trControl = fitControl)
+```
 ```{r}
 fitgbm
 table(predrf, predgbm)
